@@ -1,0 +1,15 @@
+{
+  "name": "mole-mass-comparator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Korean chemistry mole, molar mass, and mass comparison simulator for Vercel deployment.",
+  "scripts": {
+    "build": "node scripts/build-static.js",
+    "preview": "node scripts/serve-static.js",
+    "start": "node scripts/serve-static.js",
+    "test": "node --test tests/api.test.js tests/build-static.test.js tests/deployment-structure.test.js tests/frontend-formatting.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

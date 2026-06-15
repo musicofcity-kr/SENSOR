@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>화학식량 · 몰수 · 질량 비교 저울</title>
+<!--
+ * 화학식량에 따른 몰수–질량 비교 시뮬레이션 (전자저울 2대 좌·우 비교)
+ * 성취기준: 화학01-2-01 몰 개념을 이용하여 물질의 양을 계산할 수 있다
+ * 핵심역량: 과학적 사고력, 과학적 문제해결력
+ * 핵심 관계식: w(질량) = n(몰수) × M(화학식량)
+ * 데이터: 화학식량은 IUPAC 표준 원자량으로 계산·검증
+ * 개발: 2026-06
+-->
+<style>
+  :root{
+    --bg:#e9eef0; --panel:#ffffff; --ink:#16242c; --sub:#5c6b73;
+    --line:#d4dde0; --soft:#f2f6f7;
+    --left:#0d8f86; --left-soft:#e3f4f2;
+    --right:#d97a06; --right-soft:#fcefdc;
+    --lcd-bg:#0b1f17; --lcd:#74f7a0;
+    --good:#0d8f86;
+    --shadow:0 1px 2px rgba(20,36,44,.06),0 8px 24px rgba(20,36,44,.08);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:"Pretendard","Noto Sans KR","Apple SD Gothic Neo",system-ui,-apple-system,"Segoe UI",sans-serif;
+    background:var(--bg); color:var(--ink); line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1280px; margin:0 auto; padding:18px 16px 40px}
+
+  /* ---------- 헤더 ---------- */
+  header{display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; margin-bottom:14px}
+  h1{font-size:1.32rem; font-weight:800; letter-spacing:-.02em; margin:0}
+  h1 .eq{
+    font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+    font-weight:700; background:var(--ink); color:#eafff2;
+    padding:2px 10px; border-radius:7px; font-size:.92rem; margin-left:4px;
+  }
+  .chips{display:flex; flex-wrap:wrap; gap:6px; margin-left:auto}
+  .chip{font-size:.72rem; font-weight:700; padding:4px 9px; border-radius:999px;
+    background:#dfe9ec; color:#3c4d55; border:1px solid var(--line)}
+  .chip.code{background:#dff0ee; color:#0a6f68; border-color:#bfe2de}
+  .goal{width:100%; font-size:.86rem; color:var(--sub); margin-top:-2px}
+  .goal b{color:var(--ink)}
+
+  /* ---------- 모드/슬라이더 컨트롤 바 ---------- */
+  .control{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    box-shadow:var(--shadow); padding:14px 16px; margin-bottom:14px;
+    display:grid; grid-template-columns:auto 1fr auto; gap:14px 20px; align-items:center;
+  }
+  .seg{display:inline-flex; background:var(--soft); border:1px solid var(--line);
+    border-radius:10px; padding:3px; gap:3px}
+  .seg button{
+    border:0; background:transparent; cursor:pointer; font-weight:700; font-size:.85rem;
+    color:var(--sub); padding:7px 13px; border-radius:8px; transition:.15s;
+  }
+  .seg button[aria-pressed="true"]{background:var(--ink); color:#fff}
+  .seg button:focus-visible{outline:2px solid var(--left); outline-offset:2px}
+  .slider-box{display:flex; align-items:center; gap:14px; min-width:0}
+  .slider-box label{font-weight:700; font-size:.85rem; white-space:nowrap}
+  .slider-box input[type=range]{flex:1; min-width:120px; accent-color:var(--ink)}
+  .readval{
+    font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+    font-weight:700; font-size:1.05rem; min-width:118px; text-align:right;
+    background:var(--soft); border:1px solid var(--line); border-radius:8px; padding:6px 10px;
+  }
+  .hint{font-size:.78rem; color:var(--sub); white-space:nowrap}
+
+  /* ---------- 3열 본문 ---------- */
+  .stage{display:grid; grid-template-columns:1fr 320px 1fr; gap:14px; align-items:start}
+  .side{background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    box-shadow:var(--shadow); padding:16px; border-top:5px solid var(--accent)}
+  .side.left{--accent:var(--left); --accent-soft:var(--left-soft)}
+  .side.right{--accent:var(--right); --accent-soft:var(--right-soft)}
+  .side h2{margin:0 0 10px; font-size:.95rem; font-weight:800; display:flex; align-items:center; gap:8px}
+  .dot{width:10px; height:10px; border-radius:3px; background:var(--accent)}
+
+  .states{display:flex; gap:6px; margin-bottom:10px}
+  .states button{
+    flex:1; border:1px solid var(--line); background:var(--soft); cursor:pointer;
+    font-weight:700; font-size:.82rem; color:var(--sub); padding:8px 4px; border-radius:9px; transition:.15s;
+  }
+  .states button[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:#fff}
+  .states button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+  select{
+    width:100%; font-size:.9rem; font-weight:600; padding:9px 10px; border-radius:9px;
+    border:1px solid var(--line); background:var(--panel); color:var(--ink); margin-bottom:10px; cursor:pointer;
+  }
+  select:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+
+  .visual{background:linear-gradient(#f7fafb,#eef3f5); border:1px solid var(--line);
+    border-radius:12px; padding:6px; display:flex; justify-content:center}
+  .visual svg{width:100%; height:auto; max-width:300px; display:block}
+
+  .heap{transition:transform .28s ease}
+  .fill,.meniscus{transition:y .28s ease, height .28s ease, cy .28s ease}
+  .balloon{transition:rx .28s ease, ry .28s ease, cy .28s ease}
+  @media (prefers-reduced-motion:reduce){
+    .heap,.fill,.meniscus,.balloon{transition:none}
+  }
+
+  .stats{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px}
+  .stat{background:var(--soft); border:1px solid var(--line); border-radius:10px; padding:9px 11px}
+  .stat .k{font-size:.72rem; color:var(--sub); font-weight:700}
+  .stat .v{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+    font-weight:700; font-size:1.05rem; margin-top:1px}
+  .stat .u{font-size:.72rem; color:var(--sub); font-weight:600}
+  .stat.mass{background:var(--accent-soft); border-color:var(--accent)}
+  .stat.mass .v{color:var(--accent)}
+  .stat.full{grid-column:1 / -1}
+  sub{font-size:.72em}
+
+  /* ---------- 중앙 비교 ---------- */
+  .compare{background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    box-shadow:var(--shadow); padding:16px; position:sticky; top:12px}
+  .compare h2{margin:0 0 4px; font-size:.95rem; font-weight:800}
+  .compare .csub{font-size:.78rem; color:var(--sub); margin-bottom:12px}
+  .bar{margin:12px 0}
+  .bar .blab{display:flex; justify-content:space-between; font-size:.8rem; font-weight:700; margin-bottom:4px}
+  .bar .blab .nm{display:flex; align-items:center; gap:6px}
+  .track{height:20px; background:var(--soft); border:1px solid var(--line); border-radius:6px; overflow:hidden}
+  .fillbar{height:100%; width:0; border-radius:5px 0 0 5px; transition:width .3s ease}
+  .fillbar.l{background:var(--left)}
+  .fillbar.r{background:var(--right)}
+  .verdict{margin-top:14px; background:var(--soft); border:1px dashed var(--line);
+    border-radius:12px; padding:12px 13px; font-size:.9rem; line-height:1.55}
+  .verdict .big{font-weight:800; font-size:.95rem}
+  .ratio{display:inline-block; font-family:"JetBrains Mono",ui-monospace,monospace;
+    font-weight:800; background:var(--ink); color:#eafff2; padding:1px 8px; border-radius:6px}
+  .reset{width:100%; margin-top:12px; border:1px solid var(--line); background:var(--soft);
+    cursor:pointer; font-weight:700; padding:10px; border-radius:10px; color:var(--ink)}
+  .reset:hover{background:#e8eef0}
+  .reset:focus-visible{outline:2px solid var(--ink); outline-offset:2px}
+
+  /* ---------- 푸터 ---------- */
+  footer{margin-top:16px; background:var(--panel); border:1px solid var(--line);
+    border-radius:14px; padding:14px 16px; box-shadow:var(--shadow)}
+  footer h3{margin:0 0 6px; font-size:.85rem; font-weight:800}
+  footer ul{margin:0 0 10px; padding-left:18px}
+  footer li{font-size:.8rem; color:var(--sub); margin:2px 0}
+  .inquiry{background:var(--left-soft); border:1px solid #bfe2de; border-radius:10px;
+    padding:10px 12px; font-size:.82rem; color:#0a5b55}
+  .inquiry b{color:#08433f}
+
+  @media (max-width:980px){
+    .stage{grid-template-columns:1fr}
+    .compare{position:static; order:3}
+    .control{grid-template-columns:1fr}
+    .chips{margin-left:0}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>화학식량 · 몰수 · 질량 비교 저울 <span class="eq">w = n × M</span></h1>
+    <div class="chips">
+      <span class="chip code">화학01-2-01 · 몰</span>
+      <span class="chip">과학적 사고력</span>
+      <span class="chip">문제해결력</span>
+    </div>
+    <p class="goal"><b>학습 목표</b> · 같은 몰수라도 <b>화학식량(M)</b>이 크면 질량(w)이 커지고, 같은 질량이라도 화학식량이 작으면 몰수(n)가 많아짐을 두 전자저울로 비교해 설명한다.</p>
+  </header>
+
+  <!-- 컨트롤 바 -->
+  <div class="control">
+    <div class="seg" role="group" aria-label="비교 모드">
+      <button id="mode-mole"  aria-pressed="true">몰수 고정</button>
+      <button id="mode-mass"  aria-pressed="false">질량 고정</button>
+    </div>
+    <div class="slider-box">
+      <label id="sliderLabel" for="shared">몰수 n</label>
+      <input type="range" id="shared" min="0.1" max="2" step="0.05" value="1" />
+      <span class="readval" id="sharedRead">1.00 mol</span>
+    </div>
+    <div class="hint" id="modeHint">두 물질의 <b>몰수를 똑같이</b> 맞추고 질량을 비교합니다.</div>
+  </div>
+
+  <!-- 본문 3열 -->
+  <div class="stage">
+
+    <!-- 좌측 대시보드 -->
+    <section class="side left" aria-label="왼쪽 물질">
+      <h2><span class="dot"></span> 왼쪽 물질</h2>
+      <div class="states" id="states-L" role="group" aria-label="왼쪽 물질 상태"></div>
+      <select id="sel-L" aria-label="왼쪽 물질 선택"></select>
+      <div class="visual"><div id="stage-L" style="width:100%"></div></div>
+      <div class="stats" id="stats-L"></div>
+    </section>
+
+    <!-- 중앙 비교 -->
+    <aside class="compare" aria-label="비교 결과">
+      <h2 id="cmpTitle">질량 비교</h2>
+      <div class="csub" id="cmpSub">막대 길이 = 실제 값의 비율</div>
+
+      <div class="bar">
+        <div class="blab"><span class="nm"><span class="dot" style="background:var(--left)"></span><span id="bLnm">—</span></span><span id="bLval">—</span></div>
+        <div class="track"><div class="fillbar l" id="barL"></div></div>
+      </div>
+      <div class="bar">
+        <div class="blab"><span class="nm"><span class="dot" style="background:var(--right)"></span><span id="bRnm">—</span></span><span id="bRval">—</span></div>
+        <div class="track"><div class="fillbar r" id="barR"></div></div>
+      </div>
+
+      <div class="verdict" id="verdict"></div>
+      <button class="reset" id="reset">처음 상태로 되돌리기</button>
+    </aside>
+
+    <!-- 우측 대시보드 -->
+    <section class="side right" aria-label="오른쪽 물질">
+      <h2><span class="dot"></span> 오른쪽 물질</h2>
+      <div class="states" id="states-R" role="group" aria-label="오른쪽 물질 상태"></div>
+      <select id="sel-R" aria-label="오른쪽 물질 선택"></select>
+      <div class="visual"><div id="stage-R" style="width:100%"></div></div>
+      <div class="stats" id="stats-R"></div>
+    </section>
+
+  </div>
+
+  <!-- 푸터: 가정/조건 + 탐구질문 -->
+  <footer>
+    <h3>데이터 기준 및 가정 (객관성 확인)</h3>
+    <ul>
+      <li>화학식량(M)은 IUPAC 표준 원자량으로 계산한 값입니다 (예: H₂O 18.02, CO₂ 44.01).</li>
+      <li>기체 부피는 <b>0 °C, 1기압</b>에서 1 mol = 22.4 L(아보가드로 법칙) 기준이며, 풍선 질량은 공기 부력을 무시한 이상값입니다.</li>
+      <li>액체 부피는 밀도로 계산합니다 (물 1.00, 에탄올 0.789, 아세트산 1.049 g/mL, 약 20 °C).</li>
+      <li>전자저울 표시값은 용기(약포지·메스실린더·풍선)를 <b>영점(tare)</b>한 뒤 물질만의 질량입니다.</li>
+      <li>저울 위 그림의 크기는 개념 이해를 돕기 위해 조정되며, 정확한 비교는 가운데 막대(실제 값 비율)로 확인하세요.</li>
+    </ul>
+    <div class="inquiry">
+      <b>탐구 질문</b> &nbsp;① 같은 <b>몰수</b>일 때 질량이 더 큰 물질은? 화학식량과 어떤 관계인가? &nbsp;② 같은 <b>질량</b>일 때 몰수가 더 많은 물질은? 그 까닭을 화학식량으로 설명해 보자.
+    </div>
+  </footer>
+
+</div>
+
+<script src="/assets/catalog.js"></script>
+<script>
+"use strict";
+
+/* ===== 상수 ===== */
+const MOLAR_VOLUME = 22.4;          // L/mol (0 °C, 1기압)
+const KNOT_Y = 196, PAN_TOP = 206;  // SVG 기준 좌표
+
+/* ===== 물질 데이터 (M: 정밀 화학식량 / d: 밀도 g/mL) ===== */
+const SUBS = window.MOLE_MASS_CATALOG;
+if(!SUBS){
+  throw new Error("MOLE_MASS_CATALOG asset is missing.");
+}
+const STATE_LABEL = {solid:"고체", liquid:"액체", gas:"기체"};
+const STATES = ["solid","liquid","gas"];
+
+/* ===== 앱 상태 ===== */
+const app = {
+  mode:"mole",            // "mole" | "mass"
+  sharedMole:1.00,
+  sharedMass:50.0,
+  L:{state:"liquid", key:"water"},
+  R:{state:"gas",    key:"co2"},
+};
+
+/* ===== 유틸 ===== */
+const $ = id => document.getElementById(id);
+const clamp = (x,a,b) => Math.max(a, Math.min(b, x));
+const fmtMol = n => n >= 0.1 ? n.toFixed(2) : n.toFixed(3);
+const fmtFormula = f => f.replace(/(\d+)/g,"<sub>$1</sub>");
+const keysByState = st => Object.keys(SUBS).filter(k => SUBS[k].state === st);
+
+/* 한 쪽 물질의 M, n, w, V 계산 */
+function metrics(sideKey){
+  const s = app[sideKey];
+  const sub = SUBS[s.key];
+  const M = sub.M;
+  let n, w;
+  if(app.mode === "mole"){ n = app.sharedMole; w = n * M; }
+  else                   { w = app.sharedMass; n = w / M; }
+  let V = null, vUnit = "";
+  if(sub.state === "liquid"){ V = w / sub.d; vUnit = "mL"; }
+  else if(sub.state === "gas"){ V = n * MOLAR_VOLUME; vUnit = "L"; }
+  return {sub, M, n, w, V, vUnit};
+}
+
+/* ====================================================================
+   SVG 저울 + 상태별 기구 그리기
+   stage 컨테이너에 상태에 맞는 골격을 주입, 값 변화는 updateVisual로 처리
+==================================================================== */
+function balanceBase(lcdId){
+  return `
+    <rect x="35" y="238" width="190" height="74" rx="11" fill="#cdd6da" stroke="#aab6bb"/>
+    <rect x="35" y="238" width="190" height="22" rx="11" fill="#dfe6ea"/>
+    <rect x="52" y="312" width="22" height="9" rx="3" fill="#9aa6ab"/>
+    <rect x="186" y="312" width="22" height="9" rx="3" fill="#9aa6ab"/>
+    <rect x="122" y="206" width="16" height="34" fill="#b9c3c8"/>
+    <ellipse cx="130" cy="208" rx="93" ry="13" fill="#e4ebee" stroke="#b6c1c6"/>
+    <ellipse cx="130" cy="205" rx="86" ry="9"  fill="#f3f7f8"/>
+    <rect x="68" y="266" width="124" height="38" rx="6" fill="${'#0b1f17'}" stroke="#063" stroke-opacity=".4"/>
+    <text id="${lcdId}" x="184" y="291" text-anchor="end"
+          font-family="'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace"
+          font-size="20" font-weight="700" fill="#74f7a0">0.00</text>
+    <text x="186" y="291" text-anchor="start" font-size="11" fill="#3f7" opacity=".0">g</text>
+    <text x="74" y="280" font-size="8" fill="#4ad48a" opacity=".7" font-family="monospace">g · TARE</text>
+  `;
+}
+
+function solidSVG(prefix, color){
+  // 약포지(folded weighing paper) + 가루 더미(heap, 질량에 따라 scale)
+  return `<svg viewBox="0 0 260 330" role="img" aria-label="고체를 약포지 위에 올린 전자저울">
+    ${balanceBase(prefix+'-lcd')}
+    <!-- 약포지 -->
+    <polygon points="130,182 198,200 130,214 62,200" fill="#fbfbfb" stroke="#cfd6d9"/>
+    <line x1="62" y1="200" x2="198" y2="200" stroke="#e2e7e9"/>
+    <line x1="130" y1="182" x2="130" y2="214" stroke="#e2e7e9"/>
+    <!-- 가루 더미 -->
+    <g class="heap" id="${prefix}-heap" transform="translate(130,200) scale(0.5)">
+      <path d="M -36 0 Q -22 -34 0 -38 Q 22 -34 36 0 Z" fill="${color}" stroke="#aeb4ac"/>
+      <circle cx="-12" cy="-12" r="2" fill="#fff" opacity=".5"/>
+      <circle cx="10" cy="-16" r="2" fill="#fff" opacity=".5"/>
+      <circle cx="2" cy="-24" r="1.6" fill="#fff" opacity=".5"/>
+    </g>
+  </svg>`;
+}
+
+function liquidSVG(prefix, color){
+  // 메스실린더 + 액체(부피=질량/밀도 에 따라 height)
+  return `<svg viewBox="0 0 260 330" role="img" aria-label="액체를 메스실린더에 넣은 전자저울">
+    ${balanceBase(prefix+'-lcd')}
+    <ellipse cx="130" cy="206" rx="32" ry="8" fill="#cfd8dc" stroke="#b1bcc1"/>
+    <!-- 실린더 몸체 -->
+    <path d="M108 74 L108 198 Q108 206 116 206 L144 206 Q152 206 152 198 L152 74"
+          fill="rgba(255,255,255,.35)" stroke="#9aa6ad" stroke-width="2"/>
+    <path d="M104 72 L112 78 L148 78 L156 72" fill="none" stroke="#9aa6ad" stroke-width="2"/>
+    <!-- 액체 -->
+    <rect class="fill" id="${prefix}-fill" x="109" y="198" width="42" height="6" fill="${color}" opacity=".85"/>
+    <ellipse class="meniscus" id="${prefix}-meniscus" cx="130" cy="198" rx="21" ry="3" fill="${color}"/>
+    <!-- 눈금 -->
+    <g stroke="#8b979d" stroke-width="1">
+      <line x1="138" y1="96"  x2="152" y2="96"/>
+      <line x1="142" y1="123" x2="152" y2="123"/>
+      <line x1="138" y1="150" x2="152" y2="150"/>
+      <line x1="142" y1="177" x2="152" y2="177"/>
+    </g>
+  </svg>`;
+}
+
+function gasSVG(prefix, color){
+  // 풍선 (부피=n×22.4L 에 따라 반지름) — 매듭은 KNOT_Y 고정, 위로 성장
+  return `<svg viewBox="0 0 260 330" role="img" aria-label="기체를 채운 풍선을 올린 전자저울">
+    ${balanceBase(prefix+'-lcd')}
+    <!-- 클립/실 -->
+    <path id="${prefix}-string" d="M130 ${KNOT_Y} C 126 ${KNOT_Y+5}, 134 ${KNOT_Y+7}, 130 ${PAN_TOP}"
+          fill="none" stroke="#7d8990" stroke-width="1.4"/>
+    <!-- 풍선 -->
+    <ellipse class="balloon" id="${prefix}-balloon" cx="130" cy="150" rx="34" ry="38"
+             fill="${color}" stroke="#9bb4c8" stroke-width="1.5"/>
+    <ellipse id="${prefix}-shine" cx="118" cy="138" rx="8" ry="12" fill="#fff" opacity=".45"/>
+    <polygon id="${prefix}-knot" points="124,192 136,192 130,200" fill="${color}" stroke="#9bb4c8" stroke-width="1"/>
+  </svg>`;
+}
+
+function buildStage(sideKey){
+  const s = app[sideKey];
+  const prefix = sideKey;               // "L" or "R"
+  const sub = SUBS[s.key];
+  const host = $("stage-"+sideKey);
+  if(sub.state === "solid")  host.innerHTML = solidSVG(prefix, sub.color);
+  if(sub.state === "liquid") host.innerHTML = liquidSVG(prefix, sub.color);
+  if(sub.state === "gas")    host.innerHTML = gasSVG(prefix, sub.color);
+}
+
+/* 값 변화 → 그림/LCD 갱신 */
+function updateVisual(sideKey){
+  const prefix = sideKey;
+  const m = metrics(sideKey);
+  const lcd = $(prefix+"-lcd");
+  if(lcd) lcd.textContent = m.w.toFixed(2);
+
+  if(m.sub.state === "solid"){
+    const heap = $(prefix+"-heap");
+    if(heap){
+      const s = clamp(m.w / 80, 0.18, 1.25);   // 질량 → 더미 크기(개념용)
+      heap.setAttribute("transform", `translate(130,200) scale(${s.toFixed(3)})`);
+    }
+  } else if(m.sub.state === "liquid"){
+    const fill = $(prefix+"-fill"), men = $(prefix+"-meniscus");
+    const innerTop = 78, innerBottom = 204, innerH = innerBottom - innerTop;
+    const frac = clamp(m.V / 100, 0.02, 1);    // 100 mL = 가득
+    const h = frac * innerH;
+    const y = innerBottom - h;
+    if(fill){ fill.setAttribute("y", y.toFixed(1)); fill.setAttribute("height", h.toFixed(1)); }
+    if(men){ men.setAttribute("cy", y.toFixed(1)); }
+  } else if(m.sub.state === "gas"){
+    const bal = $(prefix+"-balloon"), knot = $(prefix+"-knot"), shine = $(prefix+"-shine");
+    const r = 20 + 46 * clamp(Math.cbrt(m.V / 45), 0, 1);  // 부피 → 반지름(개념용)
+    const ry = r * 1.1;
+    const cy = KNOT_Y - 6 - ry;                            // 매듭 위로 성장
+    if(bal){ bal.setAttribute("rx", r.toFixed(1)); bal.setAttribute("ry", ry.toFixed(1)); bal.setAttribute("cy", cy.toFixed(1)); }
+    if(shine){ shine.setAttribute("cx",(130-r*0.34).toFixed(1)); shine.setAttribute("cy",(cy-ry*0.32).toFixed(1)); }
+    if(knot){
+      const ky = cy + ry;
+      knot.setAttribute("points", `124,${(ky-2).toFixed(1)} 136,${(ky-2).toFixed(1)} 130,${(ky+8).toFixed(1)}`);
+    }
+  }
+}
+
+/* 결과 카드(M, n, w, 부피) */
+function renderStats(sideKey){
+  const m = metrics(sideKey);
+  const host = $("stats-"+sideKey);
+  let extra = "";
+  if(m.sub.state === "liquid")
+    extra = `<div class="stat"><div class="k">부피 (밀도 ${m.sub.d.toFixed(3)})</div><div class="v">${m.V.toFixed(1)}<span class="u"> mL</span></div></div>`;
+  else if(m.sub.state === "gas")
+    extra = `<div class="stat"><div class="k">부피 (0 °C·1기압)</div><div class="v">${m.V.toFixed(1)}<span class="u"> L</span></div></div>`;
+  else
+    extra = `<div class="stat"><div class="k">상태</div><div class="v" style="font-size:.95rem">${STATE_LABEL[m.sub.state]}</div></div>`;
+
+  host.innerHTML = `
+    <div class="stat full"><div class="k">선택한 물질</div>
+      <div class="v" style="font-size:.98rem">${m.sub.name} <span style="color:var(--sub);font-weight:600">${fmtFormula(m.sub.formula)}</span></div></div>
+    <div class="stat"><div class="k">화학식량 M</div><div class="v">${m.M.toFixed(2)}<span class="u"> g/mol</span></div></div>
+    <div class="stat"><div class="k">몰수 n</div><div class="v">${fmtMol(m.n)}<span class="u"> mol</span></div></div>
+    <div class="stat mass full"><div class="k">전자저울 질량 w = n × M</div><div class="v">${m.w.toFixed(2)}<span class="u"> g</span></div></div>
+    ${extra}
+  `;
+}
+
+/* 중앙 비교 (막대 + 결론) */
+function renderCompare(){
+  const mL = metrics("L"), mR = metrics("R");
+  const byMass = (app.mode === "mole");          // 몰수 고정 → 질량 비교
+  const valL = byMass ? mL.w : mL.n;
+  const valR = byMass ? mR.w : mR.n;
+  const unit = byMass ? "g" : "mol";
+
+  $("cmpTitle").textContent = byMass ? "질량 비교" : "몰수 비교";
+  $("bLnm").innerHTML = mL.sub.name;
+  $("bRnm").innerHTML = mR.sub.name;
+  $("bLval").textContent = byMass ? valL.toFixed(2)+" "+unit : fmtMol(valL)+" "+unit;
+  $("bRval").textContent = byMass ? valR.toFixed(2)+" "+unit : fmtMol(valR)+" "+unit;
+
+  const max = Math.max(valL, valR, 1e-9);
+  $("barL").style.width = (valL/max*100)+"%";
+  $("barR").style.width = (valR/max*100)+"%";
+
+  // 결론 문장
+  const v = $("verdict");
+  const sameM = Math.abs(mL.M - mR.M) < 0.005;
+  if(byMass){
+    if(sameM){
+      v.innerHTML = `<span class="big">화학식량이 같습니다.</span><br>그래서 같은 <b>${mL.n.toFixed(2)} mol</b>에서 두 물질의 질량도 <b>${mL.w.toFixed(2)} g</b>로 같습니다.`;
+    }else{
+      const heavy = mL.M > mR.M ? mL : mR;
+      const light = mL.M > mR.M ? mR : mL;
+      const ratio = heavy.w / light.w;
+      v.innerHTML = `몰수가 같아도(<b>${fmtMol(mL.n)} mol</b>) 화학식량이 더 큰
+        <b>${heavy.sub.name}</b>(M ${heavy.M.toFixed(2)})의 질량이
+        <span class="ratio">약 ${ratio.toFixed(2)}배</span> 큽니다.<br>
+        <span class="big">→ 같은 몰수면 화학식량 ∝ 질량.</span>`;
+    }
+  }else{
+    if(sameM){
+      v.innerHTML = `<span class="big">화학식량이 같습니다.</span><br>그래서 같은 <b>${mL.w.toFixed(2)} g</b>에서 두 물질의 몰수도 <b>${fmtMol(mL.n)} mol</b>로 같습니다.`;
+    }else{
+      const more = mL.M < mR.M ? mL : mR;   // 화학식량이 작을수록 몰수 많음
+      const less = mL.M < mR.M ? mR : mL;
+      const ratio = more.n / less.n;
+      v.innerHTML = `질량이 같아도(<b>${mL.w.toFixed(2)} g</b>) 화학식량이 더 작은
+        <b>${more.sub.name}</b>(M ${more.M.toFixed(2)})의 몰수가
+        <span class="ratio">약 ${ratio.toFixed(2)}배</span> 많습니다.<br>
+        <span class="big">→ 같은 질량이면 화학식량 ∝ 1/몰수.</span>`;
+    }
+  }
+}
+
+/* ===== 전체 갱신 ===== */
+function refreshSide(sideKey){
+  updateVisual(sideKey);
+  renderStats(sideKey);
+}
+function refreshAll(){
+  refreshSide("L");
+  refreshSide("R");
+  renderCompare();
+}
+
+/* ===== UI 빌드 ===== */
+function buildStateButtons(sideKey){
+  const host = $("states-"+sideKey);
+  host.innerHTML = STATES.map(st =>
+    `<button data-st="${st}" aria-pressed="${app[sideKey].state===st}">${STATE_LABEL[st]}</button>`
+  ).join("");
+  host.querySelectorAll("button").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const st = btn.dataset.st;
+      if(app[sideKey].state === st) return;
+      app[sideKey].state = st;
+      app[sideKey].key = keysByState(st)[0];     // 상태 바뀌면 첫 물질로
+      buildStateButtons(sideKey);
+      buildSelect(sideKey);
+      buildStage(sideKey);
+      refreshAll();
+    });
+  });
+}
+function buildSelect(sideKey){
+  const sel = $("sel-"+sideKey);
+  const keys = keysByState(app[sideKey].state);
+  sel.innerHTML = keys.map(k =>
+    `<option value="${k}" ${k===app[sideKey].key?"selected":""}>${SUBS[k].name} (${SUBS[k].formula}) · M ${SUBS[k].M.toFixed(2)}</option>`
+  ).join("");
+}
+
+/* ===== 모드 / 슬라이더 ===== */
+function applyModeUI(){
+  const mole = (app.mode === "mole");
+  $("mode-mole").setAttribute("aria-pressed", mole);
+  $("mode-mass").setAttribute("aria-pressed", !mole);
+  const slider = $("shared");
+  if(mole){
+    $("sliderLabel").textContent = "몰수 n";
+    slider.min="0.1"; slider.max="2"; slider.step="0.05"; slider.value=app.sharedMole;
+    $("modeHint").innerHTML = "두 물질의 <b>몰수를 똑같이</b> 맞추고 질량을 비교합니다.";
+  }else{
+    $("sliderLabel").textContent = "질량 w";
+    slider.min="1"; slider.max="100"; slider.step="0.5"; slider.value=app.sharedMass;
+    $("modeHint").innerHTML = "두 물질의 <b>질량을 똑같이</b> 맞추고 몰수를 비교합니다.";
+  }
+  updateSharedRead();
+}
+function updateSharedRead(){
+  $("sharedRead").textContent = (app.mode==="mole")
+    ? app.sharedMole.toFixed(2)+" mol"
+    : app.sharedMass.toFixed(2)+" g";
+}
+
+/* ===== 초기화 / 이벤트 ===== */
+function init(){
+  ["L","R"].forEach(s=>{ buildStateButtons(s); buildSelect(s); buildStage(s); });
+
+  $("sel-L").addEventListener("change", e=>{ app.L.key=e.target.value; refreshAll(); });
+  $("sel-R").addEventListener("change", e=>{ app.R.key=e.target.value; refreshAll(); });
+
+  $("mode-mole").addEventListener("click", ()=>{ app.mode="mole"; applyModeUI(); refreshAll(); });
+  $("mode-mass").addEventListener("click", ()=>{ app.mode="mass"; applyModeUI(); refreshAll(); });
+
+  $("shared").addEventListener("input", e=>{
+    const v = parseFloat(e.target.value);
+    if(app.mode==="mole") app.sharedMole=v; else app.sharedMass=v;
+    updateSharedRead();
+    refreshAll();
+  });
+
+  $("reset").addEventListener("click", ()=>{
+    app.mode="mole"; app.sharedMole=1.00; app.sharedMass=50.0;
+    app.L={state:"liquid",key:"water"}; app.R={state:"gas",key:"co2"};
+    ["L","R"].forEach(s=>{ buildStateButtons(s); buildSelect(s); buildStage(s); });
+    applyModeUI(); refreshAll();
+  });
+
+  applyModeUI();
+  refreshAll();
+}
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>

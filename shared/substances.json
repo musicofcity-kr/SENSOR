@@ -1,0 +1,82 @@
+{
+  "nacl": {
+    "name": "소금",
+    "formula": "NaCl",
+    "state": "solid",
+    "M": 58.44,
+    "color": "#e3e6e1"
+  },
+  "sugar": {
+    "name": "설탕",
+    "formula": "C12H22O11",
+    "state": "solid",
+    "M": 342.297,
+    "color": "#f0ead8"
+  },
+  "glu": {
+    "name": "포도당",
+    "formula": "C6H12O6",
+    "state": "solid",
+    "M": 180.156,
+    "color": "#f2e9d6"
+  },
+  "caco3": {
+    "name": "탄산칼슘",
+    "formula": "CaCO3",
+    "state": "solid",
+    "M": 100.086,
+    "color": "#ece9e2"
+  },
+  "water": {
+    "name": "물",
+    "formula": "H2O",
+    "state": "liquid",
+    "M": 18.015,
+    "d": 1.0,
+    "color": "#6fb7e8"
+  },
+  "etoh": {
+    "name": "에탄올",
+    "formula": "C2H6O",
+    "state": "liquid",
+    "M": 46.069,
+    "d": 0.789,
+    "color": "#bcdcec"
+  },
+  "acoh": {
+    "name": "아세트산",
+    "formula": "C2H4O2",
+    "state": "liquid",
+    "M": 60.052,
+    "d": 1.049,
+    "color": "#e7dcae"
+  },
+  "h2": {
+    "name": "수소",
+    "formula": "H2",
+    "state": "gas",
+    "M": 2.016,
+    "color": "#cde7ff"
+  },
+  "o2": {
+    "name": "산소",
+    "formula": "O2",
+    "state": "gas",
+    "M": 31.998,
+    "color": "#aed6ff"
+  },
+  "n2": {
+    "name": "질소",
+    "formula": "N2",
+    "state": "gas",
+    "M": 28.014,
+    "color": "#d6e6f0"
+  },
+  "co2": {
+    "name": "이산화탄소",
+    "formula": "CO2",
+    "state": "gas",
+    "M": 44.009,
+    "color": "#cfd9df"
+  }
+}
