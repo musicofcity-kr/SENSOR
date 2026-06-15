@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Sensor CSV Analyzer">
+  <rect width="64" height="64" rx="12" fill="#1769aa"/>
+  <path d="M12 43h40" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+  <path d="M14 37c8 0 8-18 16-18s8 18 16 18" fill="none" stroke="#b7f7d4" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="30" cy="19" r="4" fill="#ffffff"/>
+</svg>

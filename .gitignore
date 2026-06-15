@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.vercel/
+.playwright-mcp/
+.env
+.env.*
+*.log
+*.csv
+*.xlsx
+.DS_Store
+Thumbs.db
